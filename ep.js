@@ -13,7 +13,7 @@ var svg = d3.select("body")
 
 /* Static text append. */
 svg.append("text")
-.attr("x",180)
+.attr("x",300)
 .attr("y",15)
 .text("Visualize RSSI for each tagmac associated endpoints")
 .attr("font-size",22)
