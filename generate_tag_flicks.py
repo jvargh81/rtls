@@ -10,6 +10,7 @@ endpoint_m = []
 timestamp_m = []
 rssi_m = []
 tagmac_m = []
+motion = []
 
 # Read the log file for data generation.
 def read_file(file_name):
@@ -24,8 +25,7 @@ def get_the_beacon(beacon):
     if  "rssi" in collector.split(':') or "tagMac" in collector.split(':'):
         collector = collector.split(':')[1]
     elif "readTimestamp" in collector.split(':') :
-            collector = collector.split(':')[1:]
-            collector = '-'.join(collector)
+            collector = collector.split('T')[2][:8]
     return collector
 
 # Generate csv file for the given data.
@@ -36,6 +36,8 @@ def generate_dataset(lineList):
     tagmac = []
     for llist in range(len(lineList)):
         beacon = lineList[llist]
+        flag = 1
+
         if len(beacon.split('beacons')) == 2 :
             ePoint = beacon.split('beacons')[1].split(']')[1].split(',')
             beacon = beacon.split('beacons')[1].split(']')[0].split(',')
@@ -43,19 +45,29 @@ def generate_dataset(lineList):
             if "battery" not in beacon[2]:
                 for beacon_data in range(0,len(beacon)):
                     check = beacon[beacon_data].replace('[','').replace(']','').replace('{','').replace('}','').replace('"','')
+                    
+                    if "isMotion" in check.split(':') and "true" in check.split(':') :
+                        motion.append("true")
+                        flag = 0
+
                     if "readTimestamp" in check.split(':') :
                         endpoint.append(ePoint[1].split(':')[1].replace('"',''))
-                        timestamp += [get_the_beacon(beacon[beacon_data]).replace("readTimestamp-","")]
+                        timestamp += [get_the_beacon(beacon[beacon_data])]
                     elif  "rssi" in check.split(':'):
                         rssi.append(get_the_beacon(beacon[beacon_data]))
                     elif "tagMac" in check.split(':'):
                         tagmac.append(hex(int(get_the_beacon(beacon[beacon_data]))))
 
+                        if(flag):
+                            motion.append("false")
+                        else:
+                            flag = 1
+
     return endpoint, timestamp, rssi, tagmac
 
 # Gnerate Csv file for the endpoint provided.
 def generate_csv(endpoint, timestamp, rssi, tagmac):
-    beacon_ep = pd.DataFrame({'Endpoint':endpoint,'readTimestamp': timestamp, 'rssi': rssi,"tagMac": tagmac})
+    beacon_ep = pd.DataFrame({'Endpoint': endpoint,'readTimestamp': timestamp, 'rssi': rssi,"tagMac": tagmac,"isMotion": motion})
     beacon_ep.to_csv(file_name.split('.log')[0]+'.csv', index=False)
 
 # Open Csv file.
@@ -100,5 +112,6 @@ if __name__ == '__main__' :
     link = read_file(file_name)
     endpoint_m, timestamp_m, rssi_m, tagmac_m = generate_dataset(link)
     generate_csv(endpoint_m, timestamp_m, rssi_m, tagmac_m )
-    beacon = open_csv(file_name.split('.log')[0]+'.csv')
+    beacon_csv = open_csv(file_name.split('.log')[0]+'.csv')
+    beacon = beacon_csv[beacon_csv['isMotion'] == True]
     generate_rssi_for_endpoint(beacon)
